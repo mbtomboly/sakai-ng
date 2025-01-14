@@ -1,0 +1,175 @@
+<p-toast position="top-right" key="confirm" [baseZIndex]="5000">
+    <ng-template let-message #headless let-closeFn="closeFn">
+        <section class="flex flex-col p-4 gap-4 w-full bg-primary/70 rounded-xl">
+            <div class="flex items-center gap-5">
+                <span class="font-bold text-base text-white dark:text-black">{{ message.summary }}</span>
+                <p-progress-spinner strokeWidth="8" fill="transparent" animationDuration="1s" [style]="{ width: '20px', height: '20px' }" />
+            </div>
+        </section>
+    </ng-template>
+</p-toast>
+
+<p-toast />
+<p-toolbar styleClass="mb-6">
+    <ng-template #start>
+        <p-datepicker view="month" dateFormat="mm/yy" [readonlyInput]="true"
+         [showIcon]="true" [showButtonBar]="true" [(ngModel)]="date" (onSelect)="loadEgresos()"></p-datepicker>
+        <!-- <p-button label="Export" icon="pi pi-upload" severity="secondary" (onClick)="exportCSV()" /> -->
+        <!-- <p-button severity="secondary" label="Delete" icon="pi pi-trash" outlined (onClick)="deleteSelectedProducts()" [disabled]="!selectedProducts || !selectedProducts.length" /> -->
+    </ng-template>
+
+    <ng-template #end>
+        <p-button label="Registrar Egreso" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNew()" />
+    </ng-template>
+</p-toolbar>
+
+
+@if (loading) {
+    <div class="spinner-container">
+        <p-progress-spinner class="" ariaLabel="loading" />
+      </div>
+} @else {
+    <p-table
+    #dt
+    [value]="egresos()"
+    [rows]="10"
+    [columns]="cols"
+    [paginator]="true"
+    [globalFilterFields]="['nombre', 'categoria', 'monto', 'fecha']"
+    [tableStyle]="{ 'min-width': '75rem' }"
+    [(selection)]="selectedEgreso"
+    [rowHover]="true"
+    dataKey="ID"
+    currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} egresos"
+    [showCurrentPageReport]="true"
+    [rowsPerPageOptions]="[10, 20, 30]"
+>
+    <ng-template #caption>
+        <div class="flex items-center justify-between">
+            <h5 class="m-0">Egresos</h5>
+            <p-iconfield>
+                <p-inputicon styleClass="pi pi-search" />
+                <input pInputText type="text" (input)="onGlobalFilter(dt, $event)" placeholder="Buscar..." />
+            </p-iconfield>
+        </div>
+    </ng-template>
+    <ng-template #header>
+        <tr>
+            <!-- <th style="width: 3rem">
+                <p-tableHeaderCheckbox />
+            </th> -->
+            <!-- <th style="min-width: 16rem">ID</th> -->
+            <th pSortableColumn="nombre" style="min-width:16rem">
+                Nombre
+                <p-sortIcon field="nombre" />
+            </th>
+            <!-- <th>Image</th> -->
+
+            <th pSortableColumn="categoria" style="min-width:10rem">
+                Categoria
+                <p-sortIcon field="categoria" />
+            </th>
+            <th pSortableColumn="monto" style="min-width: 8rem">
+                Monto
+                <p-sortIcon field="monto" />
+            </th>
+        <th pSortableColumn="fecha" style="min-width: 8rem">
+            Fecha
+            <p-sortIcon field="fecha" />
+        </th>
+
+            <th style="min-width: 12rem"></th>
+        </tr>
+    </ng-template>
+
+    <ng-template #body let-egreso>
+
+            <tr>
+                <td style="min-width: 16rem">{{ egreso?.nombre }}</td>
+
+                <td>{{ egreso?.categoria }}</td>
+                <td>{{ egreso?.monto | miles }}</td>
+                <td>{{ egreso?.fecha | date: 'dd/MM/yy' }}</td>
+
+                <td>
+                    <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" (click)="openEdit(egreso)" />
+                    <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" (click)="openConfirmation(egreso)" />
+                </td>
+            </tr>
+
+    </ng-template>
+</p-table>
+}
+
+
+<p-dialog [(visible)]="productDialog" [style]="{ width: '450px' }" header="Registrar Egreso" [modal]="true">
+    <ng-template #content>
+        <div class="flex flex-col gap-6">
+            <div>
+                <label for="name" class="block font-bold mb-3">Nombre</label>
+                <input type="text" pInputText id="nombre" [(ngModel)]="egreso.nombre" required autofocus fluid autocomplete="off" />
+                <small class="text-red-500" *ngIf="submitted && !egreso?.nombre">Falta el nombre</small>
+            </div>
+
+            <div>
+                <label for="categoria" class="block font-bold mb-3">Categoria</label>
+                <p-select appendTo="body" [(ngModel)]="egreso.categoria" inputId="categoria"
+                [options]="categorias" optionLabel="nombre" optionValue="nombre" placeholder="Seleccionar Categoria" required fluid />
+                <small class="text-red-500" *ngIf="submitted && !egreso?.categoria">Falta la categoria</small>
+            </div>
+
+            <div class="grid grid-cols-12 gap-4">
+                <div class="col-span-4">
+                    <label for="contado" class="block font-bold mb-3">Contado</label>
+                    <p-togglebutton [(ngModel)]="egreso.contado" id="contado" onLabel="Si" offLabel="No"
+                    [style]="{ width: '10em' }" fluid />
+                </div>
+                @if (!egreso.contado) {
+                    <div class="col-span-8">
+                        <label for="tarjetas" class="block font-bold mb-3">Tarjeta</label>
+                        <p-select appendTo="body" [(ngModel)]="egreso.tarjeta" inputId="tarjetas"
+                        [options]="tarjetas" optionLabel="nombre" optionValue="nombre" placeholder="Seleccionar Tarjeta" />
+                    </div>
+                }
+
+            </div>
+
+            <div class="grid grid-cols-12 gap-4">
+                <div class="col-span-6">
+                    <label for="monto" class="block font-bold mb-3">Monto</label>
+                    <p-inputnumber id="monto" [(ngModel)]="egreso.monto" mode="currency" currency="PYG" locale="es-ES" required fluid />
+                    <small class="text-red-500" *ngIf="submitted && !egreso?.monto">Falta el monto</small>
+                </div>
+                <div class="col-span-6">
+                    <label for="quantity" class="block font-bold mb-3">Fecha</label>
+                    <p-datepicker [showIcon]="true" [showButtonBar]="true" dateFormat="dd/mm/yy"
+                     [(ngModel)]="egreso.fecha"></p-datepicker>
+                </div>
+            </div>
+        </div>
+    </ng-template>
+
+    <ng-template #footer>
+        @if (isEdit) {
+            <p-button label="Cancelar" icon="pi pi-times" text (click)="hideDialog()" />
+            <p-button label="Editar" icon="pi pi-check" (click)="editEgreso()" />
+        } @else {
+            <p-button label="Cancelar" icon="pi pi-times" text (click)="hideDialog()" />
+            <p-button label="Registrar" icon="pi pi-check" (click)="registrarEgreso()" />
+        }
+    </ng-template>
+</p-dialog>
+
+<p-confirmdialog [style]="{ width: '450px' }" />
+
+<p-dialog header="Confirmar" [(visible)]="displayConfirmation" [style]="{ width: '350px' }" [modal]="true">
+    <div class="flex items-center justify-center">
+        <i class="pi pi-exclamation-triangle mr-4" style="font-size: 2rem"> </i>
+        <span>Queremos borrar?</span>
+    </div>
+    <ng-template #footer>
+        <p-button label="No" icon="pi pi-times" (click)="closeConfirmation()" text severity="secondary" />
+        <p-button label="Yes" icon="pi pi-check" (click)="closeConfirmation(); deleteProduct()" severity="danger" outlined autofocus />
+    </ng-template>
+</p-dialog>
+
